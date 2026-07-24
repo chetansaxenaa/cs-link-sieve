@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link Sieve</title>
+<style>
+  :root{
+    --paper:#eef0e9;
+    --ink:#1f2a24;
+    --rule:#c9cdbd;
+    --accent:#3a6b52;
+    --accent-dim:#5c8b71;
+    --warn:#8b3a3a;
+    --mono: 'Courier New', Courier, monospace;
+    --serif: Georgia, 'Times New Roman', serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--serif);
+    display:flex;
+    flex-direction:column;
+  }
+  header{
+    padding:14px 24px 10px;
+    border-bottom:2px solid var(--ink);
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  header h1{
+    font-size:20px;
+    letter-spacing:0.04em;
+    margin:0;
+    font-weight:700;
+  }
+  header .tally{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--accent);
+    border:1px solid var(--accent);
+    padding:3px 10px;
+    border-radius:2px;
+    background:rgba(58,107,82,0.06);
+  }
+  .panes{
+    flex:1;
+    display:flex;
+    min-height:0;
+  }
+  .pane{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+  .pane + .pane{
+    border-left:2px solid var(--ink);
+  }
+  .pane-label{
+    font-family:var(--mono);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    color:var(--ink);
+    opacity:0.6;
+    padding:10px 20px 6px;
+  }
+  .pane-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding-right:20px;
+  }
+  .pane-tools{
+    display:flex;
+    gap:6px;
+    align-items:center;
+  }
+  .copy-all-top{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.04em;
+    padding:5px 12px;
+    border:1px solid var(--accent);
+    background:var(--accent);
+    color:#fff;
+    border-radius:2px;
+    cursor:pointer;
+  }
+  .copy-all-top:hover{
+    background:var(--accent-dim);
+    border-color:var(--accent-dim);
+  }
+  .copy-all-top:disabled{
+    opacity:0.4;
+    cursor:default;
+    background:var(--ink);
+    border-color:var(--ink);
+  }
+  .mode-btn{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.04em;
+    padding:5px 10px;
+    border:1px solid var(--rule);
+    background:none;
+    color:var(--ink);
+    border-radius:2px;
+    cursor:pointer;
+    opacity:0.8;
+  }
+  .mode-btn:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+    opacity:1;
+  }
+  textarea{
+    flex:1;
+    resize:none;
+    border:none;
+    outline:none;
+    background:transparent;
+    font-family:var(--mono);
+    font-size:14px;
+    line-height:1.6;
+    padding:6px 20px 20px;
+    color:var(--ink);
+  }
+  textarea::placeholder{
+    color:#8a9084;
+    font-style:italic;
+    font-family:var(--serif);
+  }
+  #output{
+    flex:1;
+    overflow-y:auto;
+    padding:6px 20px 20px;
+  }
+  .link-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    font-family:var(--mono);
+    font-size:13.5px;
+    padding:7px 10px;
+    margin-bottom:6px;
+    background:#ffffff;
+    border:1px solid var(--rule);
+    border-left:3px solid var(--accent);
+    border-radius:2px;
+  }
+  .link-row a{
+    color:var(--ink);
+    text-decoration:none;
+    word-break:break-all;
+  }
+  .link-row a:hover{
+    color:var(--accent);
+    text-decoration:underline;
+  }
+  .link-row button{
+    flex-shrink:0;
+    font-family:var(--mono);
+    font-size:11px;
+    border:1px solid var(--accent);
+    background:none;
+    color:var(--accent);
+    padding:3px 8px;
+    border-radius:2px;
+    cursor:pointer;
+  }
+  .link-row button:hover{
+    background:var(--accent);
+    color:#fff;
+  }
+  .link-row button.failed{
+    border-color:var(--warn);
+    color:var(--warn);
+  }
+  .empty-note{
+    font-family:var(--serif);
+    font-style:italic;
+    color:#8a9084;
+    font-size:14px;
+    padding:10px 0;
+  }
+  footer{
+    display:flex;
+    gap:10px;
+    padding:10px 20px;
+    border-top:2px solid var(--ink);
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  footer button{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:0.04em;
+    padding:7px 14px;
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:2px;
+    cursor:pointer;
+  }
+  footer button.secondary{
+    background:none;
+    color:var(--ink);
+  }
+  footer button:hover{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  footer .hint{
+    font-family:var(--mono);
+    font-size:11px;
+    color:#8a9084;
+    margin-left:auto;
+  }
+  footer .hint.warn{ color:var(--warn); }
+  :focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:2px;
+  }
+  @media (max-width:720px){
+    .panes{flex-direction:column;}
+    .pane + .pane{border-left:none;border-top:2px solid var(--ink);}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Link Sieve</h1>
+  <span class="tally" id="tally">0 links found</span>
+</header>
+
+<div class="panes">
+  <div class="pane">
+    <div class="pane-label">Paste anything here</div>
+    <textarea id="input" placeholder="Start pasting raw page content, project exports, whatever you've got — website links get filtered out automatically on the right."></textarea>
+  </div>
+  <div class="pane">
+    <div class="pane-header">
+      <div class="pane-label">Website links only</div>
+      <div class="pane-tools">
+        <button class="mode-btn" id="modeBtn" title="Switch between full URLs and bare domains">full URLs</button>
+        <button class="copy-all-top" id="copyAllTopBtn" disabled>Copy all</button>
+      </div>
+    </div>
+    <div id="output"><div class="empty-note">Links will appear here as you paste.</div></div>
+  </div>
+</div>
+
+<footer>
+  <button id="copyAllBtn">Copy all links</button>
+  <button class="secondary" id="clearBtn">Clear</button>
+  <span class="hint" id="hint">nothing pasted yet</span>
+</footer>
+
+<script>
+const IGNORE_DOMAINS = [
+  "semrush.com","google.com","googleapis.com","gstatic.com","schema.org",
+  "w3.org","facebook.com","twitter.com","x.com",
+  "linkedin.com","instagram.com","youtube.com","wikipedia.org","gravatar.com",
+  "doubleclick.net","googletagmanager.com","google-analytics.com"
+];
+
+/* A match is only a link if its last label is a real TLD.
+   Without this, "index.html" and "Node.js" look exactly like domains. */
+const TLDS = new Set((`
+ac ad ae af ag ai al am ao aq ar as at au aw ax az ba bb bd be bf bg bh bi bj bm bn bo br bs bt bw by bz
+ca cc cd cf cg ch ci ck cl cm cn co cr cu cv cw cx cy cz de dj dk dm do dz ec ee eg er es et eu fi fj fk
+fm fo fr ga gd ge gf gg gh gi gl gm gn gp gq gr gs gt gu gw gy hk hm hn hr ht hu id ie il im in io iq ir
+is it je jm jo jp ke kg kh ki km kn kp kr kw ky kz la lb lc li lk lr ls lt lu lv ly ma mc md me mg mh mk
+ml mm mn mo mp mq mr ms mt mu mv mw mx my mz na nc ne nf ng ni nl no np nr nu nz om pa pe pf pg ph pk pl
+pm pn pr ps pt pw py qa re ro rs ru rw sa sb sc sd se sg sh si sk sl sm sn so sr ss st su sv sx sy sz tc
+td tf tg th tj tk tl tm tn to tr tt tv tw tz ua ug uk us uy uz va vc ve vg vi vn vu wf ws ye yt za zm zw
+com net org edu gov mil int info biz name pro aero coop museum jobs travel mobi asia tel post
+app dev page blog site online store shop tech cloud space live life world news media digital design studio
+agency xyz top club fun link click wiki guru today work team plus email network systems solutions group
+codes ninja rocks cool zone one run fyi art bar bet bio buzz cafe cam care cash chat city dog eco expert
+fit games gift global gold green health help host house icu inc ink law lol love ltd market menu money
+movie music party photo pics pink pizza place press pub red rest review rip sale school science services
+show social software solar study style support tax taxi tips tools tours town toys trade video vip watch
+website win wine yoga zip
+`).trim().split(/\s+/));
+
+/* Real TLDs that are also common file extensions. When a match has no
+   http:// in front of it, treat these as filenames, not domains. */
+const FILE_EXTS = new Set((`
+js ts jsx tsx md py rb sh css html htm php json yaml yml xml sql txt csv log ini env lock map min
+png jpg jpeg gif svg webp ico pdf doc docx xls xlsx ppt pptx zip tar gz rar exe dmg mp3 mp4 mov avi
+wav ttf woff woff2 eot java cpp hpp go rs swift kt vue scss sass less bak tmp dll bin iso deb rpm apk
+`).trim().split(/\s+/));
+
+const URL_REGEX = /(?:https?:\/\/)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}(?::\d{2,5})?(?:\/[^\s"'<>`\[\]{}|\\^]*)?/gi;
+
+function extractLinks(text, domainsOnly){
+  const found = new Map();
+  for(const m of text.matchAll(URL_REGEX)){
+    let raw = m[0];
+
+    // Skip anything glued to a preceding word — this is what catches
+    // the domain half of an email address like jane.doe@company.com
+    const prev = m.index > 0 ? text[m.index - 1] : '';
+    if(prev && /[\w@.\-]/.test(prev)) continue;
+
+    raw = raw.replace(/[.,;:!?'"\u201d\u2019)\]]+$/, '');
+    if(!raw.includes('.')) continue;
+
+    const hasScheme = /^https?:\/\//i.test(raw);
+    let url;
+    try{ url = new URL(hasScheme ? raw : 'https://' + raw); }
+    catch(e){ continue; }
+
+    const host = url.hostname.toLowerCase();
+    const bare = host.replace(/^www\./, '');
+    const parts = bare.split('.');
+    const tld = parts[parts.length - 1];
+
+    if(parts.length < 2) continue;
+    if(!TLDS.has(tld)) continue;
+    if(!hasScheme && FILE_EXTS.has(tld)) continue;
+    if(IGNORE_DOMAINS.some(ig => bare === ig || bare.endsWith('.' + ig))) continue;
+
+    let out;
+    if(domainsOnly || (url.pathname === '/' && !url.search && !url.hash)){
+      out = url.protocol + '//' + host;
+    } else {
+      out = url.href;
+    }
+    found.set(out.toLowerCase(), out);
+  }
+  return Array.from(found.values()).sort();
+}
+
+/* ---------- clipboard ---------- */
+/* navigator.clipboard is unavailable on file:// in several browsers,
+   so fall back to a hidden textarea + execCommand. */
+async function copyText(text){
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(e){ /* fall through */ }
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  }catch(e){ return false; }
+}
+
+/* ---------- state + elements ---------- */
+let domainsOnly = false;
+
+const inputEl = document.getElementById('input');
+const outputEl = document.getElementById('output');
+const tallyEl = document.getElementById('tally');
+const hintEl = document.getElementById('hint');
+const modeBtn = document.getElementById('modeBtn');
+const copyAllTopBtn = document.getElementById('copyAllTopBtn');
+const copyAllBtn = document.getElementById('copyAllBtn');
+
+function esc(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function flash(btn, msg, failed){
+  const old = btn.dataset.label || btn.textContent;
+  btn.dataset.label = old;
+  btn.textContent = msg;
+  if(failed) btn.classList.add('failed');
+  setTimeout(() => {
+    btn.textContent = btn.dataset.label;
+    btn.classList.remove('failed');
+  }, 1400);
+}
+
+function render(){
+  const text = inputEl.value;
+  if(!text.trim()){
+    outputEl.innerHTML = '<div class="empty-note">Links will appear here as you paste.</div>';
+    tallyEl.textContent = '0 links found';
+    hintEl.textContent = 'nothing pasted yet';
+    hintEl.classList.remove('warn');
+    copyAllTopBtn.disabled = true;
+    return;
+  }
+  const links = extractLinks(text, domainsOnly);
+  tallyEl.textContent = links.length + (links.length === 1 ? ' link found' : ' links found');
+  hintEl.textContent = links.length ? 'updated live as you type' : 'no website links detected yet';
+  hintEl.classList.remove('warn');
+  copyAllTopBtn.disabled = links.length === 0;
+
+  if(links.length === 0){
+    outputEl.innerHTML = '<div class="empty-note">No website links detected in that text yet.</div>';
+    return;
+  }
+  outputEl.innerHTML = links.map(link => `
+    <div class="link-row">
+      <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(link)}</a>
+      <button type="button" data-link="${esc(link)}">copy</button>
+    </div>
+  `).join('');
+}
+
+/* Event delegation — inline onclick broke on any URL containing a quote. */
+outputEl.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-link]');
+  if(!btn) return;
+  const ok = await copyText(btn.dataset.link);
+  flash(btn, ok ? 'copied' : 'blocked', !ok);
+});
+
+async function copyAll(btn){
+  const links = extractLinks(inputEl.value, domainsOnly);
+  if(links.length === 0) return;
+  const ok = await copyText(links.join('\n'));
+  if(ok){
+    flash(btn, 'Copied ' + links.length + '!', false);
+    hintEl.textContent = 'copied ' + links.length + ' to clipboard';
+    hintEl.classList.remove('warn');
+  } else {
+    flash(btn, 'Copy blocked', true);
+    hintEl.textContent = 'browser blocked the clipboard — select the links and press Ctrl+C';
+    hintEl.classList.add('warn');
+  }
+}
+
+copyAllBtn.addEventListener('click', () => copyAll(copyAllBtn));
+copyAllTopBtn.addEventListener('click', () => copyAll(copyAllTopBtn));
+
+modeBtn.addEventListener('click', () => {
+  domainsOnly = !domainsOnly;
+  modeBtn.textContent = domainsOnly ? 'domains only' : 'full URLs';
+  render();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  inputEl.value = '';
+  render();
+  inputEl.focus();
+});
+
+inputEl.addEventListener('input', render);
+render();
+</script>
+
+</body>
+</html>
